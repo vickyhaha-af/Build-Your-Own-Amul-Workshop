@@ -1,0 +1,832 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Build Your Own Amul</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@600;700;800&family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
+<style>
+/* Layout idea: a teal brand band, then a wide two-column workspace: dials and inputs on the left, live forecast and visuals on the right. Palette sampled from the YCP 5.0 banner. */
+:root{
+  --bg:#eef6f4; --ink:#0b2e2a; --muted:#3f6560; --card:#ffffff; --line:#cde1dd;
+  --brand:#006d61; --board:#006d61; --chalk:#ffffff; --accent:#006d61; --on-accent:#ffffff; --hover:#004f46;
+  --mint:#5eb4ae; --chalk-accent:#c4ece5;
+  --good:#0a7a4f; --bad:#c43d3d;
+  --c1:#006d61; --c2:#5eb4ae; --c3:#bfe3dd; --c4:#d54b4b; --c5:#0b2e2a;
+  --display:'Poppins', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --body:'Atkinson Hyperlegible', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#071f1c; --ink:#e8f4f1; --muted:#9cc2bc; --card:#0e2f2a; --line:#1f4a43;
+    --accent:#7fd1c5; --on-accent:#05231f; --hover:#a8e4db;
+    --good:#6fd6a2; --bad:#f08a80;
+    --c1:#7fd1c5; --c2:#2f8c82; --c3:#1f5a52; --c4:#e0716b; --c5:#e8f4f1;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#071f1c; --ink:#e8f4f1; --muted:#9cc2bc; --card:#0e2f2a; --line:#1f4a43;
+  --accent:#7fd1c5; --on-accent:#05231f; --hover:#a8e4db;
+  --good:#6fd6a2; --bad:#f08a80;
+  --c1:#7fd1c5; --c2:#2f8c82; --c3:#1f5a52; --c4:#e0716b; --c5:#e8f4f1;
+  color-scheme: dark;
+}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--bg);color:var(--ink);font:400 18px/1.55 var(--body);-webkit-text-size-adjust:100%}
+.wrap{max-width:1200px;margin:0 auto;padding:6px 24px 64px}
+h1,h2,h3{text-wrap:balance;margin:0}
+h1{font:800 clamp(32px,6vw,52px)/1.1 var(--display)}
+h2{font:700 clamp(24px,4vw,34px)/1.2 var(--display)}
+h3{font:700 20px/1.3 var(--body)}
+h1:focus,h2:focus{outline:none}
+p{margin:0}
+.stack{display:flex;flex-direction:column;gap:20px}
+.stack-sm{display:flex;flex-direction:column;gap:10px}
+.tag{font:700 13px/1.2 var(--body);letter-spacing:.08em;text-transform:uppercase;color:var(--accent)}
+.muted{color:var(--muted)}
+.small{font-size:15px}
+
+/* brand band */
+.brand{background-color:var(--brand);background-image:linear-gradient(rgba(255,255,255,.07) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.07) 1px,transparent 1px);background-size:28px 28px;color:#fff}
+.brand-in{max-width:1200px;margin:0 auto;padding:14px 24px;display:flex;align-items:center;gap:16px;flex-wrap:wrap}
+.brand .logo{display:block;height:48px;width:auto}
+.brand .logo.ycp{height:50px}
+.brand .rule{width:1px;align-self:stretch;min-height:48px;background:rgba(255,255,255,.55)}
+.brand .pill{margin-left:auto;background:#fff;color:var(--brand);font:700 15px/1.2 var(--display);padding:9px 16px;border-radius:8px}
+@media (max-width:560px){.brand .pill{margin-left:0;flex-basis:100%;text-align:center}.brand-in{padding:12px 16px}.wrap{padding:6px 16px 56px}}
+
+/* board */
+.board{position:sticky;top:8px;z-index:6;margin:16px 0 24px;background:var(--board);color:var(--chalk);border-radius:14px;padding:12px 18px 14px;box-shadow:0 0 0 3px var(--bg),0 0 0 5px var(--board)}
+.board-head{display:flex;justify-content:space-between;gap:8px;font:700 13px/1.2 var(--body);letter-spacing:.1em;text-transform:uppercase;opacity:.9;margin-bottom:8px}
+.tiles{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px 18px}
+@media (min-width:760px){.tiles{grid-template-columns:repeat(6,minmax(0,1fr))}}
+.tile .lab{font:700 12px/1.2 var(--body);letter-spacing:.05em;text-transform:uppercase;opacity:.85;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tile .val{font:700 28px/1.15 var(--display);color:var(--chalk-accent);font-variant-numeric:tabular-nums;display:flex;align-items:baseline;gap:6px;flex-wrap:wrap}
+.tile .sub{font:400 12px/1.2 var(--body);opacity:.85}
+.bar{height:7px;border-radius:4px;background:rgba(255,255,255,.22);overflow:hidden;margin-top:4px}
+.bar i{display:block;height:100%;background:var(--chalk-accent);border-radius:4px}
+.delta{font:700 13px/1 var(--body);padding:3px 6px;border-radius:5px;background:rgba(255,255,255,.18);color:var(--chalk)}
+.delta.up{color:#a5f0c3}.delta.down{color:#ffbdb1}
+
+/* layout */
+.layout{display:grid;grid-template-columns:1fr;gap:24px;align-items:start}
+@media (min-width:960px){.layout{grid-template-columns:minmax(0,1.3fr) minmax(340px,.7fr)}.side{position:sticky;top:150px}}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:20px 24px}
+.scene{border-left:6px solid var(--mint)}
+.learn{border-left:6px solid var(--good)}
+.learn .tag{color:var(--good)}
+.panel{display:flex;flex-direction:column;gap:22px}
+.panel h3{padding-bottom:8px;border-bottom:2px solid var(--line)}
+
+/* controls */
+.btn{font:700 18px/1.2 var(--body);padding:15px 26px;border-radius:10px;border:2px solid var(--accent);background:var(--accent);color:var(--on-accent);cursor:pointer;align-self:flex-start}
+.btn:hover:not([disabled]){background:var(--hover);border-color:var(--hover)}
+.btn[disabled]{opacity:.4;cursor:not-allowed}
+.btn.ghost{background:transparent;color:var(--accent)}
+.btn.ghost:hover{background:var(--card)}
+.btn.link{border:none;background:none;color:var(--muted);text-decoration:underline;padding:6px 0;font-weight:400;font-size:15px}
+:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+.field{display:flex;flex-direction:column;gap:6px}
+.fhead{display:flex;justify-content:space-between;align-items:baseline;gap:12px}
+.flabel{font:700 18px/1.3 var(--body)}
+.fval{font:700 22px/1 var(--display);color:var(--accent);text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+.ends{display:flex;justify-content:space-between;gap:12px;font-size:14px;color:var(--muted)}
+.help{font-size:15px;color:var(--muted)}
+input[type=text],input[type=number],textarea.in{font:inherit;padding:12px 14px;border:2px solid var(--line);border-radius:10px;background:var(--card);color:var(--ink);width:100%}
+input[type=number]{max-width:170px}
+textarea.in{min-height:96px;resize:vertical}
+input[type=text]:focus,input[type=number]:focus,textarea.in:focus{border-color:var(--accent);outline:none}
+input[type=range]{-webkit-appearance:none;appearance:none;width:100%;height:34px;background:transparent;cursor:pointer;margin:0}
+input[type=range]::-webkit-slider-runnable-track{height:12px;border-radius:7px;background:linear-gradient(90deg,var(--accent) var(--pct,50%),var(--line) var(--pct,50%))}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:30px;height:30px;border-radius:50%;background:var(--card);border:5px solid var(--accent);margin-top:-9px;box-shadow:0 1px 4px rgba(0,0,0,.25)}
+input[type=range]::-moz-range-track{height:12px;border-radius:7px;background:var(--line)}
+input[type=range]::-moz-range-progress{height:12px;border-radius:7px;background:var(--accent)}
+input[type=range]::-moz-range-thumb{width:20px;height:20px;border-radius:50%;background:var(--card);border:5px solid var(--accent)}
+input:disabled,textarea:disabled{opacity:.6;cursor:not-allowed}
+
+/* budget split */
+.alloc{display:flex;flex-direction:column;gap:14px}
+.split{display:flex;height:26px;border-radius:9px;overflow:hidden;border:1px solid var(--line)}
+.split i{display:block;height:100%;transition:width .12s}
+.arow{display:grid;grid-template-columns:22px 1fr;gap:4px 12px;align-items:center}
+.sw{width:18px;height:18px;border-radius:5px;border:1px solid var(--line)}
+.arow .fhead{grid-column:2}
+.arow input[type=range]{grid-column:2}
+.arow .help{grid-column:2;margin-top:-4px}
+
+/* forecast */
+.fc{display:flex;flex-direction:column;gap:6px}
+.fc-row{display:flex;justify-content:space-between;align-items:center;padding:9px 0;border-bottom:1px solid var(--line);font-size:18px}
+.fc-row:last-child{border-bottom:none}
+.fc-row b{font:700 20px/1 var(--display);font-variant-numeric:tabular-nums}
+.fc-row.up b{color:var(--good)}.fc-row.down b{color:var(--bad)}.fc-row.zero b{color:var(--muted)}
+.deltas{display:flex;flex-wrap:wrap;gap:8px}
+.chip{font:700 15px/1 var(--body);padding:7px 10px;border-radius:7px;border:1px solid var(--line);background:var(--bg)}
+.chip.up{color:var(--good);border-color:var(--good)}
+.chip.down{color:var(--bad);border-color:var(--bad)}
+.gauge{height:16px;border-radius:9px;background:var(--line);overflow:hidden;position:relative}
+.gauge i{display:block;height:100%;background:var(--accent);border-radius:9px;transition:width .12s}
+.gauge.over i{background:var(--bad)}
+
+/* seasons grid */
+.gridwrap{overflow-x:auto}
+table.grid{border-collapse:collapse;width:100%;min-width:300px;font-size:16px}
+.grid th,.grid td{padding:9px 6px;text-align:center;border-bottom:1px solid var(--line)}
+.grid th:first-child,.grid td:first-child{text-align:left;font-weight:700}
+.grid thead th{font:700 12px/1.2 var(--body);letter-spacing:.05em;text-transform:uppercase;color:var(--muted)}
+.grid tr.you td:first-child{color:var(--accent)}
+.pct{display:inline-block;min-width:48px;padding:4px 6px;border-radius:6px;font:700 15px/1.2 var(--body);font-variant-numeric:tabular-nums}
+.pct.none{color:var(--muted);border:1px dashed var(--line);font-weight:400}
+
+/* end */
+.type{font:700 clamp(26px,5vw,38px)/1.15 var(--display);color:var(--accent)}
+svg text{font-family:var(--body)}
+textarea.sum{width:100%;min-height:300px;font:14px/1.5 ui-monospace,Menlo,Consolas,monospace;padding:12px;border:2px solid var(--line);border-radius:10px;background:var(--card);color:var(--ink);resize:vertical}
+ul.clean{margin:0;padding-left:22px;display:flex;flex-direction:column;gap:8px}
+.result{scroll-margin-top:170px}
+footer{margin-top:28px;display:flex;justify-content:space-between;gap:12px;align-items:center;flex-wrap:wrap}
+@media (prefers-reduced-motion: no-preference){
+  .stage > *{animation:rise .25s ease-out both}
+  @keyframes rise{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+}
+@media (prefers-reduced-motion: reduce){.split i,.gauge i{transition:none}}
+</style>
+</head>
+<body>
+<header class="brand"><div class="brand-in"><img class="logo iim" alt="IIM Ranchi" src="data:image/png;base64,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"><span class="rule" aria-hidden="true"></span><img class="logo ycp" alt="Young Changemakers Programme, IIM Ranchi" src="data:image/png;base64,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"><span class="pill">YCP 5.0 · The Connect Edition</span></div></header>
+<div class="wrap">
+  <div id="boardslot"></div>
+  <main id="stage" class="stage stack" style="padding-top:4px" aria-live="polite"></main>
+  <footer id="foot"></footer>
+</div>
+<noscript><p style="padding:16px">This simulation needs JavaScript to run.</p></noscript>
+<script>
+(function(){
+'use strict';
+
+/* ================= constants ================= */
+var BASE = [100,101,102,104,105]; // what an unorganised farmer earns from Polson, stylised
+var METERS = [
+  {k:'income', label:'Your pay'}, {k:'trust', label:'Trust'}, {k:'voice', label:'Voice'},
+  {k:'power', label:'Market power'}, {k:'reserve', label:'Reserve'}, {k:'villages', label:'Villages'}
+];
+var LABELS = {income:'Your pay', trust:'Trust', voice:'Member voice', power:'Market power', reserve:'Reserve fund', villages:'Villages'};
+var NAMES = ['kanta','ramesh','bhanu','savitri','dalpat'];
+var NAMEDISP = {you:'You', kanta:'Kanta', ramesh:'Ramesh', bhanu:'Bhanu', savitri:'Savitri', dalpat:'Dalpat'};
+var CAPACITY = 90; // committee visit-units per year
+
+function Acc(){ var fx={income:0,trust:0,voice:0,power:0,reserve:0,villages:0}; return {fx:fx, add:function(k,v){ fx[k]+=v; }}; }
+function mx(a,b){ return Math.max(a,b); }
+function cl(v,a,b){ return Math.max(a,Math.min(b,v)); }
+function r1(x){ return Math.round(x*10)/10; }
+
+/* ================= rounds ================= */
+var ROUNDS = [
+/* ---------- Round 1 ---------- */
+{ id:'r1', title:'The spark', years:'1945-46',
+  scene:'Polson pays little for your milk and collects it when it suits him. Everyone in your village complains, and nothing changes. Led by Tribhuvandas Patel, and on the advice of Vallabhbhai Patel, farmers decide to form a cooperative instead of waiting. You are on the founding committee. It is your job to set it up.',
+  sections:[
+   {title:'1. Found the society', fields:[
+     {id:'name', type:'text', label:'Name your society', placeholder:'For example: Kaira Milk Producers\' Society', maxlen:50, def:''},
+     {id:'promise', type:'text', label:'Finish the sentence: "Our society exists so that..."', placeholder:'...every farmer who brings milk gets a fair price', maxlen:90, def:'', help:'Members can hold you to this. A promise written in your own words earns a little trust.'},
+     {id:'villages', type:'number', label:'How many village societies do you start with?', min:1, max:8, def:2, help:'More villages mean more milk and more weight. They also mean more strangers.'}
+   ]},
+   {title:'2. Write the bye-laws', fields:[
+     {id:'fee', type:'slider', label:'Entry fee to join', min:0, max:500, step:25, def:100, show:function(v){return 'Rs '+v;}, left:'Anyone can join', right:'Builds capital fast', help:'A higher fee raises capital. It also keeps out the poorest producers.'},
+     {id:'vote', type:'slider', label:'How much of a vote depends on litres supplied?', min:0, max:100, step:5, def:0, show:function(v){return v+'%';}, left:'One member, one vote', right:'Votes follow litres', help:'Big suppliers like more say. Small members stop coming to meetings when they have less.'},
+     {id:'alloc', type:'alloc', label:'How is the surplus shared? Split 100 points.', buckets:[
+       {id:'L', label:'By milk supplied', desc:'Delivering more earns more.', def:50},
+       {id:'Sh', label:'By money put in', desc:'Like a company shareholder.', def:0},
+       {id:'E', label:'Split equally', desc:'Feels fair. Pays coasters the same as regulars.', def:20},
+       {id:'Rs', label:'Kept in reserve', desc:'Safer society, smaller pay today.', def:30}
+     ]}
+   ]}
+  ],
+  effect:function(inp){
+    var a=Acc(), v=cl(Math.round(inp.villages)||1,1,8), f=inp.fee, w=inp.vote, al=inp.alloc, lines=[], cards=[];
+    a.add('villages',v);
+    a.add('trust', 6 + (9 - 2*mx(0,v-2) - mx(0,2-v)));
+    a.add('voice', 6); a.add('power', 4 + 7*Math.sqrt(v));
+    a.add('voice', 6 - 12*f/500); a.add('reserve', 14*f/500); a.add('power', 5*f/500);
+    a.add('voice', 12 - 0.22*w); a.add('power', 0.06*w); a.add('trust', 5 - 0.09*w);
+    a.add('income', 0.12*al.L - 0.03*al.Sh - 0.08*al.Rs);
+    a.add('trust', 0.06*al.L - 0.05*al.Sh + 0.04*al.E);
+    a.add('voice', -0.12*al.Sh); a.add('power', 0.03*al.L - 0.05*al.E); a.add('reserve', 0.3*al.Rs);
+    var hasPromise = (inp.promise||'').trim().length>=10;
+    if (hasPromise) a.add('trust', 2);
+    var nm=(inp.name||'').trim();
+    lines.push((nm?'"'+nm+'" is registered. ':'The society is registered. ')+'You start with '+v+' village '+(v===1?'society':'societies')+'. The real cooperative began with two and was registered in 1946 as the Kaira District Co-operative Milk Producers\' Union.');
+    lines.push(v<=1 ? 'One village makes too little milk to matter to a buyer in Bombay, but everyone knows everyone.' : (v<=3 ? 'Few enough villages to trust each other, enough to be noticed.' : 'With '+v+' villages, many members barely know each other. More milk, thinner trust.'));
+    lines.push(f<=50 ? 'With an entry fee of Rs '+f+', anyone can join, but the society starts with almost no capital.' : (f>=300 ? 'A fee of Rs '+f+' builds capital quickly. The poorest producers, who needed this most, cannot afford to join.' : 'A fee of Rs '+f+' raises a little capital and keeps the door mostly open.'));
+    lines.push(w<=20 ? 'Votes barely depend on herd size, so a small producer counts almost as much as a big one.' : (w>=60 ? 'Votes follow litres supplied. Big suppliers set the rules and small members stop coming to meetings.' : 'Votes lean on herd size ('+w+'%). Big suppliers carry extra weight.'));
+    var sl=[];
+    if (al.L>=50) sl.push('Surplus follows milk supplied, so delivering more earns more.');
+    if (al.E>=35) sl.push('A large equal share feels fair, but it pays the same to someone who delivers daily and someone who rarely does. Coasting becomes tempting.');
+    if (al.Sh>=30) sl.push('Money put in earns a return, so members with spare cash gain most.');
+    if (al.Rs>=50) sl.push('Over half the surplus stays in reserve. The society is safer, and members are paid less now.');
+    if (!sl.length) sl.push('A mixed split. Nothing is extreme, and nothing is optimised.');
+    lines = lines.concat(sl.slice(0,2));
+    cards.push({term:'The first three principles', text:'The International Cooperative Alliance lists seven principles. The first three do the most work: open membership, an equal vote, and surplus shared by how much each member used the cooperative. You have just set your own version of each.'});
+    if (hasPromise) cards.push({term:'A public promise', text:'You wrote: "'+inp.promise.trim()+'". Members can now hold the committee to it. That is how a cooperative starts earning trust.'});
+    return {fx:a.fx, flags:{equalShare:al.E, voteWeight:w}, lines:lines, cards:cards,
+      log:['Society name: '+(nm||'(not named)'), 'Promise: '+(hasPromise?inp.promise.trim():'(none)'), 'Villages at start: '+v, 'Entry fee: Rs '+f, 'Vote tied to litres: '+w+'%', 'Surplus split: '+al.L+'% by milk, '+al.Sh+'% by money in, '+al.E+'% equal, '+al.Rs+'% reserve']};
+  }
+},
+/* ---------- Round 2 (seasons) ---------- */
+{ id:'r2', title:'The free-rider test', years:'1946 onwards',
+  scene:'The society is registered, and milk is flowing to it instead of to Polson. He notices. For the next four seasons he offers 25% more than the society pays to anyone who sells to him on the side. Some of your neighbours will be tempted. So might you be. First, set how the society responds. Then play the seasons.',
+  special:true },
+/* ---------- Round 3 ---------- */
+{ id:'r3', title:'Who runs it?', years:'Around 1950-51',
+  scene:'More milk arrives each month than the volunteer committee can test, process and sell. Batches spoil. This year ends with a surplus, and you must decide how to use it, who runs the business, and whether to take outside money.',
+  sections:[
+   {title:'1. Spend the surplus', fields:[
+     {id:'alloc', type:'alloc', label:'Split 100 points of this year\'s surplus.', buckets:[
+       {id:'P', label:'Pay members now', desc:'Everyone sees the benefit today.', def:30},
+       {id:'Pl', label:'Processing plant', desc:'Sell finished products. Wait longer for returns.', def:25},
+       {id:'M', label:'Manager and staff', desc:'Under 10 points and batches spoil.', def:20},
+       {id:'T', label:'Training and accounts', desc:'Members who read the books ask sharper questions.', def:10},
+       {id:'Rs', label:'Reserve fund', desc:'A cushion for a bad year.', def:15}
+     ]}
+   ]},
+   {title:'2. Decide who is in control', fields:[
+     {id:'over', type:'slider', label:'How tightly does the elected board control the manager?', min:0, max:100, step:5, def:60, show:function(v){return v+'%';}, left:'Manager decides alone', right:'Board approves everything', help:'Too loose and nobody checks him. Too tight and every decision crawls.'},
+     {id:'inv', type:'slider', label:'Outside investor\'s share of control, in return for cash', min:0, max:49, step:1, def:0, show:function(v){return v+'%';}, left:'No outsider', right:'Almost half', help:'Cash arrives and the plant runs. Control leaves.'}
+   ]}
+  ],
+  effect:function(inp){
+    var a=Acc(), al=inp.alloc, O=inp.over, I=inp.inv, lines=[], cards=[];
+    var eff = 1 - 0.5*mx(0,(O-70)/30);
+    a.add('income', 0.18*al.P); a.add('trust', 0.05*al.P);
+    a.add('power', 0.5*al.Pl); a.add('income', 0.05*al.Pl);
+    if (al.M>=10){ a.add('income', 0.3*al.M*eff); a.add('power', 0.3*al.M*eff); }
+    else { a.add('income', -(10-al.M)*0.8); a.add('trust', -(10-al.M)*0.3); }
+    a.add('voice', 0.5*al.T); a.add('trust', 0.05*al.T);
+    a.add('reserve', 0.3*al.Rs - 0.15*al.Pl);
+    a.add('voice', 0.15*O - 3); a.add('power', -0.25*mx(0,O-70)); a.add('trust', -0.2*mx(0,40-O));
+    a.add('reserve', 0.6*I); a.add('power', 0.35*I); a.add('income', 0.2*I); a.add('voice', -0.7*I); a.add('trust', -0.25*I);
+    lines.push(al.M<10 ? 'With under a tenth of the surplus for a manager, nobody properly runs the plant, and batches keep spoiling.' : 'A professional manager takes over testing, processing and selling. In the real story, Verghese Kurien joined as general manager around 1950-51.');
+    lines.push(O>=85 ? 'The board signs off almost every decision. Members stay in control, and decisions crawl.' : (O<=25 ? 'The manager answers to almost nobody. Things move fast, until the first time money goes missing.' : 'The board sets direction and reviews results, and lets the manager run daily work.'));
+    if (I>0) lines.push(I>=25 ? 'An outside company holds '+I+'% of control. The plant runs on its cash, but decisions about your milk no longer answer to the members.' : 'An outside investor takes '+I+'% of control. Cash arrives, and so does a say in your decisions.');
+    if (al.T>=15) lines.push('Members learn to read the accounts, and questions at meetings get sharper.');
+    if (al.P>=45) lines.push('Most of the surplus is paid out at once. Members are pleased, and little has been built.');
+    if (al.Pl>=30) lines.push('A big share goes into processing, so the society now sells finished products instead of raw milk. Members wait longer for their share.');
+    if (al.M>=10) cards.push({term:'Professional management', text:'The members still owned the venture. The manager worked for them. Control is not the same as skill, and a cooperative can keep one while hiring the other.'});
+    if (I>=15) cards.push({term:'Mission drift', text:'Chasing financial strength can pull an organisation away from its purpose. Autonomy and independence is the fourth ICA principle, and it exists to guard against exactly this.'});
+    if (al.T>=15) cards.push({term:'Education and training', text:'The fifth ICA principle. Members who understand the books can hold managers to account.'});
+    if (al.P>=45 && cards.length<2) cards.push({term:'Member economic participation', text:'Surplus is shared by how much each member used the cooperative. Paying it all out is fair, and it is also spending, not building.'});
+    if (!cards.length) cards.push({term:'Trade-offs', text:'Every point of surplus can be spent once. What you fund shows what you value.'});
+    return {fx:a.fx, flags:{outsideControl:I>=15, investor:I}, lines:lines, cards:cards.slice(0,3),
+      log:['Surplus: '+al.P+' pay, '+al.Pl+' plant, '+al.M+' manager, '+al.T+' training, '+al.Rs+' reserve', 'Board control over manager: '+O+'%', 'Outside investor share: '+I+'%']};
+  }
+},
+/* ---------- Round 4 ---------- */
+{ id:'r4', title:'Growing past one village', years:'The years between',
+  scene:'The plant works, and word spreads. More villages ask to join. Your committee can only make so many village visits a year, and the villages need a joint body, a district union, to process and sell their milk. Decide how fast to grow and who owns the union.',
+  sections:[
+   {title:'Decide the pace and the ownership', fields:[
+     {id:'add', type:'number', label:'How many new villages do you add this year?', min:0, max:60, def:10, help:'Type a number from 0 to 60.'},
+     {id:'visits', type:'slider', label:'Committee visits to each new village this year', min:1, max:8, step:1, def:3, show:function(v){return v+(v===1?' visit':' visits');}, left:'A quick hello', right:'Real relationships', help:'Visits build trust. Your committee has limited time, shown on the right.'},
+     {id:'seats', type:'slider', label:'Share of district-union board seats held by the village societies', min:0, max:100, step:5, def:70, show:function(v){return v+'%';}, left:'Experts run it', right:'Villages own it', help:'The rest of the seats go to outside experts.'}
+   ]}
+  ],
+  effect:function(inp, ctx){
+    var a=Acc(), add=cl(Math.round(inp.add)||0,0,60), vis=inp.visits, seats=inp.seats, lines=[], cards=[];
+    var existing = ctx.villages;
+    var needed = existing*2 + add*vis, load = needed/CAPACITY, over = mx(0, load-1);
+    a.add('villages', add);
+    a.add('power', 3.2*Math.sqrt(add) + 0.12*(100-seats));
+    a.add('income', 0.5*Math.sqrt(add) + 0.07*(100-seats));
+    a.add('trust', 1.5*vis - 25*over); a.add('voice', 0.35*seats - 12 - 10*over);
+    a.add('reserve', -0.08*needed);
+    lines.push(add+' new village'+(add===1?'':'s')+' join, '+(existing+add)+' in all.');
+    lines.push(over>0 ? 'Your committee needed about '+Math.round(load*100)+'% of its capacity to make these visits. Something gave: visits slipped, members felt neglected, and money went on emergency trips.' : 'The committee could make every planned visit, using about '+Math.round(load*100)+'% of its capacity.');
+    lines.push(seats>=60 ? 'Village societies hold '+seats+'% of the union board seats, so ownership runs upward from the village, as in Amul.' : (seats>=30 ? 'Societies hold only '+seats+'% of the seats. Experts hold the rest. The farmers have a voice, but not the last word.' : 'Societies hold just '+seats+'% of the seats. The union is effectively run from the top, and the villages are suppliers.'));
+    cards.push({term:'Growth and trust', text:'Every new village adds milk, and it also adds strangers. Trust has to be built again each time, and it takes visits, which take time and money.'});
+    cards.push(seats>=60 ? {term:'Ownership runs upward', text:'In Amul, ownership runs upward from the village. The farmer owns the society, and the societies own the union.'} : {term:'Skill without ownership', text:'A supplier can be paid well and still have no say. That is the difference between a cooperative and a good customer.'});
+    var own = seats>=60 ? 'up' : (seats>=30 ? 'mixed' : 'expert');
+    return {fx:a.fx, flags:{ownership:own, seats:seats}, lines:lines, cards:cards,
+      log:['New villages: '+add, 'Visits per new village: '+vis, 'Village share of union board seats: '+seats+'%', 'Committee workload: '+Math.round(load*100)+'% of capacity']};
+  }
+},
+/* ---------- Round 5 ---------- */
+{ id:'r5', title:'Many unions, one brand', years:'1973',
+  scene:'Other districts have built dairy unions of their own. Each sells alone, and sometimes against the others. A state federation, GCMMF, is being set up. Selling through one brand opens a far bigger market, and decisions about selling move further from the village.',
+  sections:[
+   {title:'Decide how far to join, and what to do with the surplus', fields:[
+     {id:'fed', type:'slider', label:'Share of your milk sold through the federation brand', min:0, max:100, step:5, def:50, show:function(v){return v+'%';}, left:'Stay independent', right:'All in', help:'More reach and steadier prices. Less say over how your milk is sold.'},
+     {id:'del', type:'slider', label:'Seats you demand for village delegates on the federation board', min:0, max:10, step:1, def:3, show:function(v){return v+(v===1?' seat':' seats');}, left:'None', right:'Ten', help:'Delegates carry the village\'s voice upward. Meetings and travel cost money.'},
+     {id:'alloc', type:'alloc', label:'This year\'s surplus: split 100 points.', buckets:[
+       {id:'Pa', label:'Pay members', desc:'Everyone feels it at home.', def:40},
+       {id:'Cm', label:'Village services', desc:'Vets, schools, roads. Concern for community.', def:30},
+       {id:'Rs', label:'Reserve fund', desc:'A cushion for a bad year.', def:30}
+     ]}
+   ]}
+  ],
+  effect:function(inp){
+    var a=Acc(), F=inp.fed, D=inp.del, al=inp.alloc, lines=[], cards=[];
+    a.add('power', 0.2*F); a.add('income', 0.1*F);
+    a.add('voice', -0.14*F + 1.8*D*(F/100) + 0.05*al.Cm); a.add('reserve', -1.0*D);
+    if (F<30){ a.add('trust', 4*(30-F)/30); a.add('voice', 0.05*(30-F)); }
+    if (F<50){ a.add('income', -0.05*(50-F)); }
+    a.add('income', 0.15*al.Pa - 0.04*al.Rs + 0.05*al.Cm); a.add('trust', 0.02*al.Pa + 0.28*al.Cm);
+    a.add('reserve', 0.35*al.Rs);
+    lines.push(F>=70 ? 'Most of your milk goes out under the federation brand. Prices steady and the market widens, and decisions about selling now sit further from the village.' : (F<=20 ? 'You mostly stay independent. Control stays close to home, and the union sells alone in a market full of bigger sellers.' : 'You sell part of your milk through the federation and part on your own.'));
+    lines.push(D>=5 ? 'Village delegates hold real seats on the federation board. Travelling to meetings costs money and time.' : (D===0 ? 'No seats were secured for village delegates. Federation decisions do not have to hear from the village.' : 'A few village delegates sit on the federation board.'));
+    if (al.Cm>=30) lines.push('A large share goes to village services, so the society becomes part of village life and not only a place to sell milk.');
+    if (al.Pa>=60) lines.push('Most of the surplus is paid out. Pay rises, and the cushion for a bad year is thin.');
+    if (al.Rs>=50) lines.push('Over half goes into reserve. The union is safe, and members wonder why their pay has not grown.');
+    cards.push({term:'Cooperation among cooperatives', text:'The sixth ICA principle. Cooperatives gain strength by working together, and they give up some local control to do it. The state federation, GCMMF, followed in 1973.'});
+    if (F>=50 && D<3) cards.push({term:'Voice at every tier', text:'A federation stays a cooperative only if the people at the bottom still have a way to reach the top.'});
+    if (al.Cm>=20) cards.push({term:'Concern for community', text:'The seventh ICA principle asks a cooperative to work for the wider good of the places it comes from.'});
+    else if (al.Rs>=50) cards.push({term:'Reserve fund', text:'A reserve protects a cooperative through bad years. Members need to see why it is there, or they begin to doubt it.'});
+    return {fx:a.fx, flags:{federation:F, delegates:D}, lines:lines, cards:cards.slice(0,3),
+      log:['Milk sold through federation: '+F+'%', 'Village delegate seats: '+D, 'Surplus: '+al.Pa+' pay, '+al.Cm+' village services, '+al.Rs+' reserve']};
+  }
+}
+];
+
+/* ================= state ================= */
+function defaultsFor(R){
+  var inp={};
+  (R.sections||[]).forEach(function(sec){ sec.fields.forEach(function(f){
+    if (f.type==='alloc'){ inp[f.id]={}; f.buckets.forEach(function(b){ inp[f.id][b.id]=b.def; }); }
+    else inp[f.id]=f.def;
+  }); });
+  return inp;
+}
+function fresh(){
+  var inp=[]; ROUNDS.forEach(function(R){ inp.push(defaultsFor(R)); });
+  inp[1]={fine:0, openness:0, predict:'', side:0};
+  return {screen:'intro', r:0, phase:'edit',
+    m:{income:100,trust:40,voice:10,power:5,reserve:0,villages:0},
+    flags:{}, hist:[], log:[], flash:null, res:null, inp:inp,
+    s2:{started:false, n:0, you:[], acts:{kanta:[],ramesh:[],bhanu:[],savitri:[],dalpat:[]}, last:null, done:false},
+    answers:['','','']};
+}
+var S;
+
+function clampMeter(k,v){
+  if (k==='villages') return Math.max(0, Math.round(v));
+  if (k==='income') return Math.max(60, Math.round(v));
+  return Math.max(0, Math.min(100, Math.round(v)));
+}
+function previewDelta(fx){
+  var d={}; METERS.forEach(function(mm){ var k=mm.k; var nv=clampMeter(k,S.m[k]+(fx[k]||0)); var dd=nv-S.m[k]; if (dd) d[k]=dd; }); return d;
+}
+function applyFx(fx){
+  var d=previewDelta(fx);
+  METERS.forEach(function(mm){ var k=mm.k; if (fx[k]) S.m[k]=clampMeter(k,S.m[k]+fx[k]); });
+  var merged=S.flash||{}; Object.keys(d).forEach(function(k){ merged[k]=(merged[k]||0)+d[k]; }); S.flash=merged;
+  return d;
+}
+function sign(n){ return (n>0?'+':'−')+Math.abs(n); }
+
+/* ================= DOM helper ================= */
+function h(tag, props){
+  var e=document.createElement(tag);
+  if (props) Object.keys(props).forEach(function(k){
+    var v=props[k]; if (v==null || v===false) return;
+    if (k==='class') e.className=v;
+    else if (k.slice(0,2)==='on') e.addEventListener(k.slice(2), v);
+    else if (k==='html') e.innerHTML=v;
+    else e.setAttribute(k, v===true?'':v);
+  });
+  for (var i=2;i<arguments.length;i++){
+    var kids=[].concat(arguments[i]);
+    for (var j=0;j<kids.length;j++){ var c=kids[j]; if (c==null || c===false) continue; e.append(c.nodeType?c:document.createTextNode(String(c))); }
+  }
+  return e;
+}
+function scrollToEl(el){ try { el.scrollIntoView({behavior: matchMedia('(prefers-reduced-motion: reduce)').matches?'auto':'smooth', block:'start'}); } catch(e){} }
+
+/* ================= board ================= */
+function societyName(){ var n=(S.inp[0].name||'').trim(); return n; }
+function renderBoard(){
+  var slot=document.getElementById('boardslot'); slot.innerHTML='';
+  if (S.screen==='intro') return;
+  var inEnd=S.screen==='end', base=BASE[Math.min(inEnd?4:S.r,4)];
+  var tiles=METERS.map(function(mm){
+    var v=S.m[mm.k], dv=S.flash && S.flash[mm.k];
+    var kids=[h('div',{class:'lab'},mm.label),
+      h('div',{class:'val'}, String(v), dv?h('span',{class:'delta '+(dv>0?'up':'down'),'aria-label':'changed by '+sign(dv)},sign(dv)):null)];
+    if (mm.k==='income') kids.push(h('div',{class:'sub'},'Polson pays '+base));
+    else if (mm.k==='villages') kids.push(h('div',{class:'sub'},'societies'));
+    else kids.push(h('div',{class:'bar','aria-hidden':'true'},h('i',{style:'width:'+v+'%'})));
+    return h('div',{class:'tile'},kids);
+  });
+  var nm=societyName();
+  slot.append(h('section',{class:'board','aria-label':'Your cooperative, six meters'},
+    h('div',{class:'board-head'}, h('span',null,(nm?nm+' · ':'')+'Society rate board'), h('span',null,inEnd?'Final':'Round '+(S.r+1)+' of 5')),
+    h('div',{class:'tiles'},tiles)));
+}
+
+/* ================= controls ================= */
+var ALLOC_COLORS=['var(--c1)','var(--c2)','var(--c3)','var(--c4)','var(--c5)'];
+function setPct(inp){ var mn=+inp.min, mxv=+inp.max; inp.style.setProperty('--pct', ((+inp.value-mn)/(mxv-mn)*100)+'%'); }
+function rebalance(vals,ids,changed,nv){
+  nv=cl(Math.round(nv),0,100);
+  var others=ids.filter(function(i){return i!==changed;});
+  var rest=100-nv, sumO=others.reduce(function(s,i){return s+vals[i];},0), out={}, used=0;
+  others.forEach(function(i){ out[i]= sumO>0 ? Math.floor(vals[i]*rest/sumO) : Math.floor(rest/others.length); used+=out[i]; });
+  var order=others.slice().sort(function(x,y){ return vals[y]-vals[x]; }), rem=rest-used, k=0;
+  while (rem>0){ out[order[k%order.length]]++; rem--; k++; }
+  out[changed]=nv; Object.keys(out).forEach(function(i){ vals[i]=out[i]; });
+}
+function fieldEl(f, vals, locked, onChange){
+  var id='f-'+f.id;
+  if (f.type==='text'){
+    var inp=h('input',{type:'text',id:id,maxlength:f.maxlen||60,placeholder:f.placeholder||'',value:vals[f.id]||'',disabled:locked});
+    inp.addEventListener('input',function(){ vals[f.id]=inp.value; onChange(); });
+    return h('div',{class:'field'}, h('label',{class:'flabel','for':id},f.label), inp, f.help?h('div',{class:'help'},f.help):null);
+  }
+  if (f.type==='number'){
+    var n=h('input',{type:'number',id:id,inputmode:'numeric',min:f.min,max:f.max,step:1,value:vals[f.id],disabled:locked});
+    n.addEventListener('input',function(){ var v=parseFloat(n.value); vals[f.id]=isNaN(v)?f.def:cl(Math.round(v),f.min,f.max); onChange(); });
+    n.addEventListener('change',function(){ var v=parseFloat(n.value); v=isNaN(v)?f.def:cl(Math.round(v),f.min,f.max); vals[f.id]=v; n.value=v; onChange(); });
+    return h('div',{class:'field'}, h('label',{class:'flabel','for':id},f.label), n, f.help?h('div',{class:'help'},f.help):null);
+  }
+  if (f.type==='slider'){
+    var s=h('input',{type:'range',id:id,min:f.min,max:f.max,step:f.step||1,value:vals[f.id],disabled:locked});
+    var out=h('span',{class:'fval','aria-hidden':'true'}, f.show(vals[f.id]));
+    function upd(){ vals[f.id]=+s.value; out.textContent=f.show(vals[f.id]); setPct(s); }
+    s.addEventListener('input',function(){ upd(); onChange(); });
+    setPct(s);
+    return h('div',{class:'field'}, h('div',{class:'fhead'},h('label',{class:'flabel','for':id},f.label),out), s,
+      h('div',{class:'ends'},h('span',null,f.left),h('span',null,f.right)), f.help?h('div',{class:'help'},f.help):null);
+  }
+  if (f.type==='alloc'){
+    var av=vals[f.id], ids=f.buckets.map(function(b){return b.id;}), sliders={}, labs={}, segs={};
+    var bar=h('div',{class:'split',role:'img','aria-label':'Split of 100 points'});
+    f.buckets.forEach(function(b,i){ segs[b.id]=h('i',{style:'width:'+av[b.id]+'%;background:'+ALLOC_COLORS[i%5]}); bar.append(segs[b.id]); });
+    function sync(){ f.buckets.forEach(function(b){ sliders[b.id].value=av[b.id]; setPct(sliders[b.id]); labs[b.id].textContent=av[b.id]+' pts'; segs[b.id].style.width=av[b.id]+'%'; }); }
+    var rows=f.buckets.map(function(b,i){
+      var sl=h('input',{type:'range',id:id+'-'+b.id,min:0,max:100,step:5,value:av[b.id],disabled:locked,'aria-label':b.label});
+      var lab=h('span',{class:'fval'},av[b.id]+' pts'); sliders[b.id]=sl; labs[b.id]=lab; setPct(sl);
+      sl.addEventListener('input',function(){ rebalance(av,ids,b.id,+sl.value); sync(); onChange(); });
+      return h('div',{class:'arow'}, h('span',{class:'sw',style:'background:'+ALLOC_COLORS[i%5]}),
+        h('div',{class:'fhead'},h('span',{class:'flabel'},b.label),lab), sl, h('div',{class:'help'},b.desc));
+    });
+    return h('div',{class:'alloc'}, h('div',{class:'flabel'},f.label), bar, rows,
+      h('div',{class:'help'},'The sliders are linked. Raising one lowers the others, so the total stays at 100.'));
+  }
+  return h('div');
+}
+
+/* ================= forecast ================= */
+function forecastCard(fx, title){
+  var d=previewDelta(fx);
+  var rows=METERS.map(function(mm){
+    var v=d[mm.k]||0;
+    return h('div',{class:'fc-row '+(v>0?'up':(v<0?'down':'zero'))}, h('span',null,LABELS[mm.k]), h('b',null, v?sign(v):'no change'));
+  });
+  return h('div',{class:'card stack-sm'}, h('div',{class:'tag'},title||'Forecast for this round'), h('div',{class:'fc'},rows),
+    h('p',{class:'help'},'Direct effects only. Later rounds can add to these or undo them.'));
+}
+
+function tierSVG(tiers, mode){
+  var bw=250, bh=44, gap=34, x=35, n=tiers.length, H=n*bh+(n-1)*gap+8;
+  var s='<svg viewBox="0 0 320 '+H+'" width="100%" role="img" aria-label="'+tiers.map(function(t){return t.label;}).join(', ')+'. Arrows point from owner to owned.">';
+  s+='<defs><marker id="ah" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="var(--ink)"/></marker></defs>';
+  tiers.forEach(function(t,i){
+    var y=4+i*(bh+gap);
+    s+='<rect x="'+x+'" y="'+y+'" width="'+bw+'" height="'+bh+'" rx="8" fill="var(--card)" stroke="var(--ink)" stroke-width="2"/>';
+    s+='<text x="'+(x+bw/2)+'" y="'+(y+19)+'" text-anchor="middle" font-size="14" font-weight="700" fill="var(--ink)">'+t.label+'</text>';
+    s+='<text x="'+(x+bw/2)+'" y="'+(y+35)+'" text-anchor="middle" font-size="12" fill="var(--muted)">'+(t.sub||'')+'</text>';
+    if (i<n-1){
+      var y1=y+bh+2, y2=y+bh+gap-2, ax=x+bw/2;
+      s+= mode==='up' ? '<line x1="'+ax+'" y1="'+y2+'" x2="'+ax+'" y2="'+y1+'" stroke="var(--ink)" stroke-width="2.5" marker-end="url(#ah)"/>'
+                      : '<line x1="'+ax+'" y1="'+y1+'" x2="'+ax+'" y2="'+y2+'" stroke="var(--ink)" stroke-width="2.5" marker-end="url(#ah)"/>';
+    }
+  });
+  return h('div',{html:s+'</svg>',style:'max-width:380px;margin:0 auto'});
+}
+function tiersFor(includeFed){
+  var own=S.flags.ownership||'up', t=[];
+  if (includeFed) t.push({label:'State federation (GCMMF)', sub:'1973'});
+  if (own==='expert' || own==='mixed') t.push({label:'Board with outside experts', sub:(S.flags.seats!=null?S.flags.seats+'% village seats':'')});
+  t.push({label:'District union', sub:''});
+  t.push({label:'Village societies', sub:S.m.villages+' societies'});
+  t.push({label:'Farmers', sub:'milk producers'});
+  return t;
+}
+
+/* ================= screens ================= */
+function roundTag(){ var R=ROUNDS[S.r]; return h('div',{class:'tag'},'Round '+(S.r+1)+' of 5 · '+R.years); }
+function headBlock(){ var R=ROUNDS[S.r]; return h('div',{class:'stack-sm'}, roundTag(), h('h2',{tabindex:'-1'},R.title), h('div',{class:'card scene'},h('p',null,R.scene))); }
+
+function viewIntro(){
+  return [
+    h('div',{class:'stack-sm'}, h('div',{class:'tag'},'Kaira district, Gujarat · 1945'), h('h1',{tabindex:'-1'},'Build Your Own Amul')),
+    h('div',{class:'card stack-sm',style:'max-width:820px'},
+      h('p',null,'You are a milk producer in a village in Kaira. Every day your milk is collected by Polson, a private dairy with monopoly rights to collect milk for Bombay. Polson sets the price. You take it, because there is nobody else to sell to.'),
+      h('p',null,'Over five rounds you will help set up and run a cooperative. Each round you set a few dials, type a few things and split a budget. A live forecast shows what each choice does to six things: your pay, trust, member voice, market power, the reserve fund and the number of villages. There is no perfect answer. Every good choice costs something.')),
+    h('button',{class:'btn',id:'start',onclick:function(){ S.screen='round'; S.r=0; S.phase='edit'; render(); }},'Start in 1945')
+  ];
+}
+
+/* ---- generic round ---- */
+function viewRound(){
+  var R=ROUNDS[S.r];
+  if (R.special) return viewR2();
+  var locked=S.phase==='done', inp=S.inp[S.r];
+  var side=h('div',{class:'side stack'}); var left=h('div',{class:'stack'});
+  function ctx(){ return {villages:S.m.villages}; }
+  function refresh(){
+    side.innerHTML='';
+    if (S.phase==='edit'){
+      var res=R.effect(inp,ctx()); side.append(forecastCard(res.fx));
+      if (R.id==='r4') side.append(r4Visual(inp));
+    }
+  }
+  left.append(headBlock());
+  var panel=h('div',{class:'card panel'});
+  R.sections.forEach(function(sec){
+    var box=h('div',{class:'stack'}, h('h3',null,sec.title));
+    sec.fields.forEach(function(f){ box.append(fieldEl(f,inp,locked,refresh)); });
+    panel.append(box);
+  });
+  left.append(panel);
+  if (!locked){
+    left.append(h('button',{class:'btn',id:'lock',onclick:function(){ lockRound(); }}, 'Lock in round '+(S.r+1)));
+    refresh();
+  } else {
+    var res=S.res;
+    var chips=Object.keys(res.deltas).map(function(k){ var v=res.deltas[k]; return h('span',{class:'chip '+(v>0?'up':'down')},LABELS[k]+' '+sign(v)); });
+    var rb=h('div',{class:'stack result',id:'result'},
+      h('div',{class:'card stack-sm'}, h('div',{class:'tag'},'What happened'), res.lines.map(function(t){return h('p',null,t);}),
+        chips.length?h('div',{class:'deltas'},chips):null),
+      res.cards.map(function(c){ return h('div',{class:'card learn stack-sm'},h('div',{class:'tag'},'Concept · '+c.term),h('p',null,c.text)); }),
+      h('button',{class:'btn',id:'next-round',onclick:function(){ advance(); }}, S.r===4?'See how it turned out':'Next round'));
+    left.append(rb);
+    var chipsAll=Object.keys(res.deltas).length;
+    side.append(h('div',{class:'card stack-sm'}, h('div',{class:'tag'},'What changed'),
+      h('div',{class:'fc'}, METERS.map(function(mm){ var v=res.deltas[mm.k]||0; return h('div',{class:'fc-row '+(v>0?'up':(v<0?'down':'zero'))},h('span',null,LABELS[mm.k]),h('b',null,v?sign(v):'no change')); }))));
+    if (R.id==='r4') side.append(h('div',{class:'card stack-sm'},h('div',{class:'tag'},'What you built'),tierSVG(tiersFor(false),(S.flags.ownership||'up')==='up'?'up':'down'),h('p',{class:'help'},'Arrows point from owner to owned.')));
+    if (R.id==='r5') side.append(h('div',{class:'card stack-sm'},h('div',{class:'tag'},'What you built'),tierSVG(tiersFor(S.flags.federation>0),(S.flags.ownership||'up')==='up'?'up':'down'),h('p',{class:'help'},'Arrows point from owner to owned.')));
+  }
+  return [h('div',{class:'layout'}, left, side)];
+}
+function r4Visual(inp){
+  var existing=S.m.villages, add=cl(Math.round(inp.add)||0,0,60), needed=existing*2+add*inp.visits, load=needed/CAPACITY, pct=Math.min(100,Math.round(load*100));
+  return h('div',{class:'card stack-sm'}, h('div',{class:'tag'},'Committee workload'),
+    h('div',{class:'gauge'+(load>1?' over':''),role:'img','aria-label':'Workload '+Math.round(load*100)+' percent of capacity'},h('i',{style:'width:'+pct+'%'})),
+    h('p',null, Math.round(load*100)+'% of the committee\'s visiting capacity'+(load>1?'. Overstretched.':'.')),
+    h('div',{class:'tag',style:'margin-top:6px'},'Union board seats'),
+    h('div',{class:'split'}, h('i',{style:'width:'+inp.seats+'%;background:var(--c1)'}), h('i',{style:'width:'+(100-inp.seats)+'%;background:var(--c4)'})),
+    h('p',{class:'help'}, inp.seats+'% village societies, '+(100-inp.seats)+'% outside experts'));
+}
+function lockRound(){
+  var R=ROUNDS[S.r], inp=S.inp[S.r];
+  var res=R.effect(inp,{villages:S.m.villages});
+  S.flash=null; var d=applyFx(res.fx);
+  Object.keys(res.flags||{}).forEach(function(k){ S.flags[k]=res.flags[k]; });
+  S.log.push({r:S.r, lines:res.log});
+  S.res={lines:res.lines, cards:res.cards, deltas:d};
+  S.phase='done'; render(); var el=document.getElementById('result'); if (el) scrollToEl(el);
+}
+
+/* ---- round 2 ---- */
+function deterrence(i){
+  var p=S.inp[1], det=0.55*(p.fine/40);
+  var clean = S.s2.you.slice(0,i).every(function(x){return x<0.15;});
+  det += 0.45*(p.openness/10)*(clean?1:0.25);
+  return cl(det,0,1);
+}
+function defectLast(i, except){
+  if (i===0) return 0;
+  var s=0, c=0, s2=S.s2;
+  NAMES.forEach(function(nm){ if (nm!==except){ s+=s2.acts[nm][i-1]; c++; } });
+  s+=s2.you[i-1]; c++; return s/c;
+}
+function nbAct(nm,i){
+  var s2=S.s2, det=deterrence(i), g=defectLast(i,nm), E=S.flags.equalShare||0;
+  var v=0;
+  if (nm==='kanta') v=0;
+  else if (nm==='ramesh') v = i===0 ? 0.6 : 0.6*(1-1.3*det);
+  else if (nm==='bhanu') v = i===0 ? 0 : s2.you[i-1];
+  else if (nm==='savitri') v = i===0 ? (S.m.trust<35?0.3:0) : mx(0, g*0.9-0.05);
+  else if (nm==='dalpat') v = i===0 ? (E>=35?0.4:0) : g*1.4*(1-0.7*det);
+  return Math.round(cl(v,0,1)*10)/10;
+}
+function playSeason(){
+  var s2=S.s2, p=S.inp[1], i=s2.n, you=cl(Math.round(p.side)/100,0,1);
+  s2.you.push(you);
+  NAMES.forEach(function(nm){ s2.acts[nm].push(nbAct(nm,i)); });
+  var sum=you; NAMES.forEach(function(nm){ sum+=s2.acts[nm][i]; });
+  var f=1-sum/6, fineK=p.fine/40;
+  var fx={
+    income: 6*you*(1-p.fine/25) + 14*(f-0.8),
+    trust:  14*(f-0.8) - 6*you - 2*fineK*(sum>you?1:0),
+    voice:  -4*you,
+    power:  12*(f-0.8),
+    reserve:3*f + 2*fineK*sum
+  };
+  S.flash=null; var d=applyFx(fx);
+  s2.n++; s2.last={f:f, deltas:d, you:you, ramesh:s2.acts.ramesh[i]};
+  if (s2.n>=4){ s2.done=true; S.log.push({r:1, lines:['Fine on side-selling: '+p.fine+'% of value', 'Village meeting openness: '+p.openness+'/10', 'My prediction: '+p.predict+' of 5 neighbours sell on the side', 'Share of my milk sold to Polson per season: '+s2.you.map(function(x){return Math.round(x*100)+'%';}).join(', ')]}); S.hist_pending=true; }
+  render();
+  var el=document.getElementById('season-out'); if (el) scrollToEl(el);
+}
+function seasonGrid(){
+  var s2=S.s2;
+  var head=h('tr',null,h('th',null,'Farmer'),[1,2,3,4].map(function(n){return h('th',null,'S'+n);}));
+  function cell(who,i){
+    var v=(who==='you'?s2.you:s2.acts[who])[i];
+    if (v==null) return h('td',null,h('span',{class:'pct none','aria-label':'not played yet'},'–'));
+    var a=Math.round(v*100);
+    var bg=v===0?'rgba(10,122,79,.15)':'rgba(196,61,61,'+(0.15+0.55*v)+')';
+    return h('td',null,h('span',{class:'pct',style:'background:'+bg,'aria-label':a+' percent sold to Polson'},a+'%'));
+  }
+  var rows=['you'].concat(NAMES).map(function(who){
+    return h('tr',{class:who==='you'?'you':''},h('td',null,NAMEDISP[who]),[0,1,2,3].map(function(i){return cell(who,i);}));
+  });
+  return h('div',{class:'card stack-sm'}, h('div',{class:'tag'},'Share of milk each farmer sold to Polson'),
+    h('div',{class:'gridwrap'},h('table',{class:'grid'},h('thead',null,head),h('tbody',null,rows))),
+    h('p',{class:'help'},'0% means everything went to the society. Higher means more went to Polson.'));
+}
+function viewR2(){
+  var s2=S.s2, p=S.inp[1], started=s2.started, done=s2.done;
+  var left=h('div',{class:'stack'}), side=h('div',{class:'side stack'});
+  left.append(headBlock());
+  // setup panel
+  var startBtn=h('button',{class:'btn',id:'start-seasons',disabled:true,onclick:function(){ s2.started=true; render(); var el=document.getElementById('play-panel'); if (el) scrollToEl(el); }},'Start the four seasons');
+  var gaugeBox=h('div',{class:'stack-sm'});
+  function det(){ gaugeBox.innerHTML=''; var d=deterrence(0); var pct=Math.round(d*100);
+    gaugeBox.append(h('div',{class:'tag'},'How strongly the society discourages side-selling'),
+      h('div',{class:'gauge'},h('i',{style:'width:'+pct+'%'})),
+      h('p',{class:'help'},'Strength '+pct+'%. A fine hurts the person who cheats. Open discussion works through memory and shame, and only when you have clean hands yourself.')); }
+  function chk(){ var v=p.predict; startBtn.disabled = !(v!=='' && v!=null && !isNaN(+v) && +v>=0 && +v<=5); det(); }
+  var setupFields=[
+    {id:'fine', type:'slider', label:'Fine for selling to Polson on the side', min:0, max:40, step:5, show:function(v){return v+'% of the sale';}, left:'No fine', right:'Heavy fine', help:'The fine applies to you too. It is paid into the reserve.'},
+    {id:'openness', type:'slider', label:'How openly are side-sales discussed at the village meeting?', min:0, max:10, step:1, show:function(v){return v+' / 10';}, left:'Never mentioned', right:'Named in public', help:'Everyone will hear, and everyone will remember.'}
+  ];
+  var predF={id:'predict', type:'number', label:'Your prediction: how many of your 5 neighbours will sell to Polson at least once?', min:0, max:5, def:'', help:'Type a number from 0 to 5. You will see how close you were.'};
+  var setup=h('div',{class:'card panel'}, h('h3',null,'1. Set the society\'s response'),
+    setupFields.map(function(f){ return fieldEl(f,p,started,chk); }), gaugeBox,
+    (function(){ var n=fieldEl(predF,p,started,chk); var inp=n.querySelector('input'); inp.removeAttribute('value'); inp.value=(p.predict===''||p.predict==null)?'':p.predict;
+      inp.addEventListener('input',function(){ var v=parseFloat(inp.value); p.predict=isNaN(v)?'':cl(Math.round(v),0,5); chk(); });
+      inp.addEventListener('change',function(){ var v=parseFloat(inp.value); p.predict=isNaN(v)?'':cl(Math.round(v),0,5); inp.value=p.predict; chk(); });
+      return n; })(),
+    started?null:startBtn);
+  left.append(setup); chk();
+  if (started){
+    var season=Math.min(s2.n+1,4);
+    var play=h('div',{class:'card panel',id:'play-panel'}, h('h3',null,done?'2. The four seasons are over':'2. Season '+season+' of 4'));
+    if (!done){
+      play.append(h('p',null,'Polson offers 25% more than the society pays, for any milk sold to him on the side. Nobody will stop you at the gate. Your five neighbours decide at the same time as you.'));
+      var sf={id:'side', type:'slider', label:'Share of your milk you sell to Polson this season', min:0, max:100, step:10, show:function(v){return v+'%';}, left:'All to the society', right:'All to Polson', help:'Higher means more money for you today and less milk for the society.'};
+      play.append(fieldEl(sf,p,false,function(){}));
+      play.append(h('button',{class:'btn',id:'play',onclick:function(){ playSeason(); }},'Play season '+season));
+    }
+    left.append(play);
+    if (s2.last){
+      var o=s2.last, pct=Math.round(o.f*100);
+      var chips=Object.keys(o.deltas).map(function(k){ var v=o.deltas[k]; return h('span',{class:'chip '+(v>0?'up':'down')},LABELS[k]+' '+sign(v)); });
+      left.append(h('div',{class:'card stack-sm result',id:'season-out'}, h('div',{class:'tag'},'Season '+s2.n+' result'),
+        h('p',null,'The society collected about '+pct+'% of the milk it could have. '+(o.f>=0.9?'Almost everyone delivered, so the society had its full strength.':(o.f>=0.75?'Enough was delivered to get by, but the society was weaker than it should have been.':'Too many sold on the side, and the society lost strength.'))),
+        o.ramesh>0 && p.fine>0 ? h('p',null,'Ramesh sold '+Math.round(o.ramesh*100)+'% to Polson and paid the fine. Fining a neighbour is never comfortable.') : null,
+        chips.length?h('div',{class:'deltas'},chips):null));
+    }
+    if (done) left.append(debrief());
+  }
+  side.append(seasonGrid());
+  return [h('div',{class:'layout'},left,side)];
+}
+function debrief(){
+  var s2=S.s2, p=S.inp[1];
+  var ys=s2.you.filter(function(x){return x>0;}).length, avg=Math.round(100*s2.you.reduce(function(a,b){return a+b;},0)/4);
+  var rs=Math.round(100*s2.acts.ramesh.reduce(function(a,b){return a+b;},0)/4);
+  var sellers=NAMES.filter(function(nm){ return s2.acts[nm].some(function(x){return x>0;}); }).length;
+  var lines=[];
+  lines.push(+p.predict===sellers ? 'You predicted '+p.predict+' of your 5 neighbours would sell on the side at least once. You were exactly right.' : 'You predicted '+p.predict+' of your 5 neighbours would sell on the side at least once. In fact '+sellers+' did.');
+  lines.push(ys===0 ? 'You delivered everything to the society in all four seasons, so Bhanu did too. He copies whatever you did the season before.' : 'You sold to Polson in '+ys+' of 4 seasons, about '+avg+'% of your milk on average. Bhanu copied you each time, one season later. He was playing tit-for-tat with you.');
+  lines.push('Ramesh, who tests the rules, sold about '+rs+'% of his milk to Polson on average. '+(p.fine>=20 || p.openness>=6 ? 'Your fine and your village meeting made it costly for him.' : 'With little to stop him, he kept going.'));
+  var others=['savitri','dalpat'].filter(function(nm){ return s2.acts[nm].some(function(x){return x>0;}); }).map(function(nm){return NAMEDISP[nm];});
+  if (others.length) lines.push(others.join(' and ')+' began selling on the side after seeing others do it.');
+  return h('div',{class:'stack result',id:'debrief'},
+    h('div',{class:'card stack-sm'}, h('div',{class:'tag'},'What the four seasons showed'), lines.map(function(t){return h('p',null,t);})),
+    h('div',{class:'card learn stack-sm'}, h('div',{class:'tag'},'Concept · Free-rider problem'), h('p',null,'A cooperative produces a shared benefit, so each member is tempted to enjoy it without contributing.')),
+    h('div',{class:'card learn stack-sm'}, h('div',{class:'tag'},'Concept · Tit-for-tat'), h('p',null,'In a village, repeated dealings help. A member who does not pitch in is remembered, and neighbours answer in kind. That memory keeps a cooperative honest, and it is also how one person\'s choice spreads.')),
+    h('button',{class:'btn',id:'next-round',onclick:function(){ advance(); }},'Next round'));
+}
+
+/* ---- flow ---- */
+function advance(){
+  S.flash=null; S.res=null; S.hist.push(S.m.income);
+  S.r++; S.phase='edit';
+  if (S.r>=ROUNDS.length){ S.r=ROUNDS.length-1; S.screen='end'; }
+  render();
+}
+
+/* ================= ending ================= */
+function typeOf(m,f){
+  if (f.outsideControl && m.voice<50) return ['Funded, but not yours','Money and machinery arrived, but the farmers no longer decide. This is mission drift, inside a cooperative\'s clothes.'];
+  if (m.trust<35) return ['Brittle','On paper it is large, but members do not trust each other or the board, and one bad season could break it.'];
+  if (m.power>=65 && m.voice<45) return ['Fast but top-heavy','Strong in the market, but ordinary farmers have little say in how it is run.'];
+  if (m.voice>=60 && m.power<45) return ['Loved but small','Members feel it is theirs, but it has little weight with buyers.'];
+  if (m.trust>=60 && m.voice>=50 && m.power>=55) return ['Rooted and strong','Members trust it, have a real say, and the market takes it seriously. That is hard to build and easy to lose.'];
+  return ['Steady builder','It works and it is still the members\' own. It has not yet become either the biggest or the most democratic version of itself.'];
+}
+function strongWeak(){
+  var ks=['trust','voice','power','reserve'], hi=ks[0], lo=ks[0];
+  ks.forEach(function(k){ if (S.m[k]>S.m[hi]) hi=k; if (S.m[k]<S.m[lo]) lo=k; }); return {hi:hi,lo:lo};
+}
+function prompts(){
+  var sw=strongWeak(), ys=S.s2.you.filter(function(x){return x>0;}).length;
+  return [
+    'My weakest meter at the end was '+LABELS[sw.lo].toLowerCase()+'. Which of my choices pulled it down, and what would I change?',
+    ys===0 ? 'I delivered everything to the society in every season of Round 2. What made it easy or hard to resist Polson\'s higher price?' : 'I sold to Polson in '+ys+' of 4 seasons of Round 2 and watched Bhanu copy me. What does that show about how one member\'s choice spreads?',
+    'The concept note says the first three principles do the most work: open membership, an equal vote, and surplus shared by use. Which of my three Round 1 settings held up best, and which would I change?'
+  ];
+}
+function summaryText(){
+  var m=S.m, t=typeOf(m,S.flags), nm=societyName();
+  var L=['BUILD YOUR OWN AMUL: MY RUN', 'Society: '+(nm||'(not named)'), 'Type: '+t[0],
+    'Final: pay '+m.income+' (Polson '+BASE[4]+'), trust '+m.trust+', member voice '+m.voice+', market power '+m.power+', reserve '+m.reserve+', villages '+m.villages, '', 'My settings:'];
+  S.log.forEach(function(x){ L.push('Round '+(x.r+1)+':'); x.lines.forEach(function(l){ L.push('  - '+l); }); });
+  L.push('','Reflection:');
+  prompts().forEach(function(p,i){ L.push((i+1)+'. '+p, '   My answer: '+(S.answers[i]||''), ''); });
+  return L.join('\n');
+}
+function chartSVG(){
+  var mine=S.hist.slice(0,5), base=BASE, all=mine.concat(base);
+  var lo=Math.floor((Math.min.apply(null,all)-5)/10)*10, hi=Math.ceil((Math.max.apply(null,all)+5)/10)*10;
+  var W=420,H=230,pl=40,pr=96,pt=16,pb=30;
+  function X(i){ return pl+(W-pl-pr)*i/4; } function Y(v){ return pt+(H-pt-pb)*(1-(v-lo)/(hi-lo)); }
+  var s='<svg viewBox="0 0 '+W+' '+H+'" width="100%" role="img" aria-label="Your pay after each round: '+mine.join(', ')+'. Polson pays: '+base.join(', ')+'.">';
+  for (var g=0; g<=4; g++){ var v=lo+(hi-lo)*g/4;
+    s+='<line x1="'+pl+'" x2="'+(W-pr)+'" y1="'+Y(v)+'" y2="'+Y(v)+'" stroke="var(--line)"/><text x="'+(pl-6)+'" y="'+(Y(v)+4)+'" text-anchor="end" font-size="12" fill="var(--muted)">'+Math.round(v)+'</text>'; }
+  for (var i=0;i<5;i++) s+='<text x="'+X(i)+'" y="'+(H-8)+'" text-anchor="middle" font-size="12" fill="var(--muted)">Round '+(i+1)+'</text>';
+  function line(arr,color,dash){ return '<polyline fill="none" stroke="'+color+'" stroke-width="3.5" '+(dash?'stroke-dasharray="7 5" ':'')+'points="'+arr.map(function(v,i){return X(i)+','+Y(v);}).join(' ')+'"/>'; }
+  s+=line(base,'var(--bad)',true)+line(mine,'var(--good)',false);
+  var li=mine.length-1, up=mine[li]>=base[4];
+  s+='<circle cx="'+X(li)+'" cy="'+Y(mine[li])+'" r="5.5" fill="var(--good)"/><text x="'+(X(li)+10)+'" y="'+(Y(mine[li])+(up?-2:14))+'" font-size="13" font-weight="700" fill="var(--good)">You '+mine[li]+'</text>';
+  s+='<circle cx="'+X(4)+'" cy="'+Y(base[4])+'" r="5.5" fill="var(--bad)"/><text x="'+(X(4)+10)+'" y="'+(Y(base[4])+(up?14:-2))+'" font-size="13" font-weight="700" fill="var(--bad)">Polson '+base[4]+'</text>';
+  return h('div',{html:s+'</svg>'});
+}
+function viewEnd(){
+  var t=typeOf(S.m,S.flags), sw=strongWeak(), gain=S.m.income-BASE[4], nm=societyName();
+  var ta=h('textarea',{class:'sum',id:'summary',readonly:true,'aria-label':'Summary of your run, ready to copy'}); ta.value=summaryText();
+  var msg=h('span',{class:'muted small',id:'copymsg',role:'status'});
+  var ps=prompts();
+  var answers=ps.map(function(p,i){
+    var area=h('textarea',{class:'in',id:'ans'+(i+1),'aria-label':'Your answer to question '+(i+1),placeholder:'Type your answer here'}); area.value=S.answers[i]||'';
+    area.addEventListener('input',function(){ S.answers[i]=area.value; ta.value=summaryText(); });
+    return h('div',{class:'field'}, h('label',{class:'flabel','for':'ans'+(i+1)},(i+1)+'. '+p), area);
+  });
+  var leftCol=h('div',{class:'stack'},
+    h('div',{class:'stack-sm'}, h('div',{class:'tag'},'1973 · '+(nm||'Your cooperative')), h('h1',{tabindex:'-1'},'How it turned out'), h('div',{class:'type'},t[0]), h('p',null,t[1])),
+    h('div',{class:'card stack-sm'}, h('div',{class:'tag'},'Your pay, compared with staying with Polson'), chartSVG(),
+      h('p',null, gain>0 ? 'Farmers in your cooperative earn '+gain+' points more per litre than an unorganised farmer would by 1973.' : (gain===0 ? 'Your cooperative pays the same as Polson. The gain is in who owns it.' : 'Your cooperative pays '+Math.abs(gain)+' points less than Polson would. Ownership is yours, but the market is not yet.')),
+      h('p',{class:'muted small'},'Stylised numbers, for learning.')),
+    h('div',{class:'card stack-sm'}, h('div',{class:'tag'},'What your choices show'),
+      h('ul',{class:'clean'},
+        h('li',null,'Your strongest meter was '+LABELS[sw.hi].toLowerCase()+' ('+S.m[sw.hi]+'), and your weakest was '+LABELS[sw.lo].toLowerCase()+' ('+S.m[sw.lo]+').'),
+        S.inp[0].promise && S.inp[0].promise.trim() ? h('li',null,'You promised: "'+S.inp[0].promise.trim()+'". Did your later choices keep that promise?') : null,
+        h('li',null,'In the real story, Amul began with two village societies, hired a professional manager around 1950-51, and was joined by a state federation in 1973. Every step cost its members something, and every step was a choice.'),
+        h('li',null,'The concept note\'s last line: a way to begin with what is at hand, support that keeps the aim going, and a structure where the people it serves have a say. Check each against your run.'))));
+  var rightCol=h('div',{class:'stack'},
+    h('div',{class:'card panel'}, h('h3',null,'Reflect in your own words'), answers),
+    h('div',{class:'card stack-sm'}, h('h3',null,'Your summary'),
+      h('p',{class:'muted small'},'It includes your settings and your answers. Copy it and paste it into your reflection form.'), ta,
+      h('div',{style:'display:flex;gap:12px;align-items:center;flex-wrap:wrap'},
+        h('button',{class:'btn',id:'copy',onclick:function(){
+          ta.value=summaryText(); ta.focus(); ta.select();
+          var done=function(ok){ msg.textContent = ok?'Copied.':'Select the text above and copy it.'; };
+          try { if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(ta.value).then(function(){done(true);},function(){done(false);}); else done(false); } catch(e){ done(false); }
+        }},'Copy summary'), msg)),
+    h('button',{class:'btn ghost',id:'again',onclick:function(){ S=fresh(); render(); }},'Play again with different choices'));
+  return [h('div',{class:'layout',style:'align-items:start'}, leftCol, rightCol)];
+}
+
+/* ================= render ================= */
+var lastKey='';
+function render(){
+  renderBoard();
+  var stage=document.getElementById('stage'); stage.innerHTML='';
+  var view = S.screen==='intro'?viewIntro() : (S.screen==='end'?viewEnd() : viewRound());
+  [].concat(view).forEach(function(n){ if (n) stage.append(n); });
+  var foot=document.getElementById('foot'); foot.innerHTML='';
+  if (S.screen==='round') foot.append(h('button',{class:'btn link',id:'restart',onclick:function(){ S=fresh(); render(); }},'Restart from 1945'));
+  var key=S.screen+'|'+S.r;
+  if (key!==lastKey){
+    lastKey=key; try { window.scrollTo(0,0); } catch(e){}
+    var hd=stage.querySelector('h1,h2'); if (hd){ try { hd.focus({preventScroll:true}); } catch(e){} }
+  }
+}
+
+/* ================= boot ================= */
+var hot=window.claude && window.claude.hot;
+function start(data){ S=(data && data.S)?data.S:fresh(); render(); }
+if (hot && hot.snapshot) hot.snapshot(function(){ return {S:S}; });
+if (hot && hot.ready) hot.ready(start); else start(hot && hot.data ? hot.data : {});
+})();
+</script>
+</body>
+</html>
